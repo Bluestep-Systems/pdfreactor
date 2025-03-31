@@ -1,5 +1,5 @@
 FROM realobjects/pdfreactor
-LABEL org.opencontainers.image.source=https://github.com/Bluestep-Systems/bluestep-git
+LABEL org.opencontainers.image.source=https://github.com/Bluestep-Systems/pdfreactor
 LABEL org.opencontainers.image.description="PDF Reactor throttled"
 
 USER root
