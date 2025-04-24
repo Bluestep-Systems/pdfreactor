@@ -54,6 +54,10 @@ autoscaling:
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+licensekey: "always-replace-this-license-key"
+# The license key is stored in a Kubernetes secret
+
 ingress:
   enabled: true
   annotations:
@@ -62,4 +66,4 @@ ingress:
 configmap:
   data:
     JAVA_OPTIONS: "-XX:ActiveProcessorCount=4 -XX:InitialRAMPercentage=45 -XX:MaxRAMPercentage=45"
-    PDFREACTOR_ADMINKEY: "2f5009d4-ad33-4c74-8b4e-46a40cea6673"
+    PDFREACTOR_ADMINKEY: "always-replace-this-secret"
