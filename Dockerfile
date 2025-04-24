@@ -1,4 +1,4 @@
-FROM realobjects/pdfreactor:12.1
+FROM realobjects/pdfreactor:11.6.12
 LABEL org.opencontainers.image.source=https://github.com/Bluestep-Systems/pdfreactor
 LABEL org.opencontainers.image.description="PDF Reactor throttled"
 
