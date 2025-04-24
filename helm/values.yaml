@@ -54,7 +54,6 @@ autoscaling:
 nodeSelector: {}
 tolerations: []
 affinity: {}
-
 licensekey: "always-replace-this-license-key"
 # The license key is stored in a Kubernetes secret
 
