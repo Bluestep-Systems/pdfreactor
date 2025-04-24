@@ -1,0 +1,121 @@
+name: Build and Push Docker pdfreactor and kubectl Image CI
+
+on: 
+  workflow_dispatch:
+  release:
+    types:
+      - published
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_VERSION: 21.1.0    
+      TAG: ${{ github.event.release.tag_name || 'latest' }}
+
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install yq
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/download/v4.43.1/yq_linux_amd64 -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Bump chart versions and set image.tag
+        run: |
+          CHART_FILE="helm/Chart.yaml"
+          VALUES_FILE="helm/values.yaml"
+          GIT_TAG=${{ env.TAG  }}          
+
+          echo "Using Git tag: $GIT_TAG"
+
+          # Get current versions
+          old_chart_version=$(yq '.version' "$CHART_FILE")
+
+          # Bump patch versions
+          new_chart_version=$(echo "$old_chart_version" | awk -F. '{$3+=1; print $1"."$2"."$3}')
+
+          echo "Bumping chart version: $old_chart_version → $new_chart_version"
+
+          # Update Chart.yaml
+          yq -i ".appVersion = \"$GIT_TAG\"" "$CHART_FILE"
+          yq -i ".version = \"$new_chart_version\"" "$CHART_FILE"
+
+          # Update values.yaml image.tag
+          yq -i ".image.tag = \"$GIT_TAG\"" "$VALUES_FILE"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Use these credientials because we're pushing the tag below to the GitHub Container Registry
+      - name: Log in to GitHub Container Registry using our credentials
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 #hash for v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+  
+      - name: Build and push with cache
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          build-args: |
+            VERSION=${{ env.TAG  }}
+          push: true
+          tags: |
+            ghcr.io/bluestep-systems/pdfreactor:${{  github.ref_name }}
+            ghcr.io/bluestep-systems/pdfreactor:latest
+          cache-from: type=gha
+          cache-to: type=gha
+
+      - name: Commit updated Helm files
+        if: success()
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add helm/Chart.yaml helm/values.yaml
+          git commit -m "chore(helm): bump version and set image tag to ${GIT_TAG} [skip ci]" || echo "No changes to commit"
+          git push origin HEAD:refs/heads/master
+  
+      - name: Set up SSH for pushing to charts repo
+        if: success()
+        env:
+          DEPLOY_KEY: ${{ secrets.CHARTS_DEPLOY_KEY }}
+          DEPLOY_KEY_PUB: ${{ vars.CHARTS_DEPLOY_KEY_PUB }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          echo "$DEPLOY_KEY_PUB" > ~/.ssh/id_rsa.pub
+          chmod 644 ~/.ssh/id_rsa.pub
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      - name: Package and push Helm chart to gh-pages
+        if: success()
+        run: |
+          CHART_NAME=pdfreactor
+          CHART_VERSION=$(yq '.version' helm/Chart.yaml)
+          rm -rf charts || true
+          git clone --branch gh-pages git@github.com:Bluestep-Systems/charts.git
+          
+          # Package chart
+          helm package helm/ --destination charts
+          # Update index.yaml
+          helm repo index charts --url https://bluestep-systems.github.io/charts/
+
+          # Git commit and push
+          cd charts
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add .
+          git commit -m "Publish $CHART_NAME v$CHART_VERSION"
+          git push
+

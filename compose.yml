@@ -1,11 +1,11 @@
 services:
-  b6p-pdfreactor:
+  pdfreactor:
     build: 
       context: .
       dockerfile: Dockerfile
       tags:
-      - b6p-pdfreactor:latest
-      - b6p-pdfreactor:1.0.0
-      - ghcr.io/bluestep-systems/b6p-pdfreactor:latest
-      - ghcr.io/bluestep-systems/b6p-pdfreactor:1.0.0
-    image: b6p-pdfreactor
+      - pdfreactor:latest
+      - pdfreactor:1.0.0
+      - ghcr.io/bluestep-systems/pdfreactor:latest
+      - ghcr.io/bluestep-systems/pdfreactor:1.0.0
+    image: pdfreactor
