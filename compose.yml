@@ -4,8 +4,6 @@ services:
       context: .
       dockerfile: Dockerfile
       tags:
-      - pdfreactor:latest
-      - pdfreactor:1.0.0
       - ghcr.io/bluestep-systems/pdfreactor:latest
       - ghcr.io/bluestep-systems/pdfreactor:1.0.0
-    image: pdfreactor
+    image: ghcr.io/bluestep-systems/pdfreactor
