@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      NODE_VERSION: 21.1.0    
       TAG: ${{ github.event.release.tag_name || 'latest' }}
 
     permissions:
