@@ -35,13 +35,8 @@ jobs:
 
           echo "Using Git tag: $GIT_TAG"
 
-          # Get current versions
-          old_chart_version=$(yq '.version' "$CHART_FILE")
-
-          # Bump patch versions
-          new_chart_version=$(echo "$old_chart_version" | awk -F. '{$3+=1; print $1"."$2"."$3}')
-
-          echo "Bumping chart version: $old_chart_version → $new_chart_version"
+          # Format the chart version to be compatible with Semantic Versioning 2.0.0 using the format x.y.z+build
+          new_chart_version=${GIT_TAG%.*}+${GIT_TAG##*.}
 
           # Update Chart.yaml
           yq -i ".appVersion = \"$GIT_TAG\"" "$CHART_FILE"
@@ -81,7 +76,7 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add helm/Chart.yaml helm/values.yaml
-          git commit -m "chore(helm): bump version and set image tag to ${GIT_TAG} [skip ci]" || echo "No changes to commit"
+          git commit -m "chore(helm): Update ${GIT_TAG} in Chart.yaml and values.yaml" || echo "No changes to commit"
           git push origin HEAD:refs/heads/master
   
       - name: Set up SSH for pushing to charts repo
