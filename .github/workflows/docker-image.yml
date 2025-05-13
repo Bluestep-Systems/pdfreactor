@@ -35,8 +35,8 @@ jobs:
 
           echo "Using Git tag: $GIT_TAG"
 
-          # Format the chart version to be compatible with Semantic Versioning 2.0.0 using the format x.y.z+build
-          new_chart_version=${GIT_TAG%.*}+${GIT_TAG##*.}
+          # Format the chart version to be compatible with Semantic Versioning 2.0.0 using the format YY.MM.DDNN
+          new_chart_version=${GIT_TAG%.*}${GIT_TAG##*.}
 
           # Update Chart.yaml
           yq -i ".appVersion = \"$GIT_TAG\"" "$CHART_FILE"
