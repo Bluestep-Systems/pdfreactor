@@ -7,7 +7,7 @@ image:
   repository: ghcr.io/bluestep-systems/pdfreactor
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "25.04.24.02"
+  tag: "25.12.16.00"
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
@@ -66,11 +66,10 @@ externalSecrets:
     name: bws-dev-shared
     kind: ClusterSecretStore
   data: []
-    # - secretKey: licensekey.txt
-    #   remoteKey: PDFREACTOR_LICENSE_KEY
-    # - secretKey: PDFREACTOR_ADMINKEY
-    #   remoteKey: PDFREACTOR_ADMIN_KEY
-
+  # - secretKey: licensekey.txt
+  #   remoteKey: PDFREACTOR_LICENSE_KEY
+  # - secretKey: PDFREACTOR_ADMINKEY
+  #   remoteKey: PDFREACTOR_ADMIN_KEY
 ingress:
   enabled: true
   annotations:
