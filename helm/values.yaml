@@ -57,6 +57,20 @@ affinity: {}
 licensekey: "always-replace-this-license-key"
 # The license key is stored in a Kubernetes secret
 
+# ExternalSecrets configuration - pulls secrets from Bitwarden Secrets Manager via ESO
+# Note: Uses ExternalSecret CRD with ClusterSecretStore
+externalSecrets:
+  enabled: false
+  refreshInterval: 1h
+  secretStoreRef:
+    name: bws-dev-shared
+    kind: ClusterSecretStore
+  data: []
+    # - secretKey: licensekey.txt
+    #   remoteKey: PDFREACTOR_LICENSE_KEY
+    # - secretKey: PDFREACTOR_ADMINKEY
+    #   remoteKey: PDFREACTOR_ADMIN_KEY
+
 ingress:
   enabled: true
   annotations:
