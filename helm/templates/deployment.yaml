@@ -43,14 +43,33 @@ spec:
             - name: http
               containerPort: 9423
               protocol: TCP
+          # Startup gates liveness/readiness until the JVM + PDFReactor engine
+          # are actually up, so a slow cold start (font-cache warm, etc.) can't
+          # trip an early liveness kill. Generous: up to 30*10s = 5min to boot.
+          startupProbe:
+            httpGet:
+              path: "/service/monitor/server?adminKey={{ .Values.configmap.data.PDFREACTOR_ADMINKEY }}"
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          # Liveness only fires for a truly dead pod. Timing is explicit so it
+          # doesn't inherit the k8s default timeoutSeconds:1 (a brief GC pause
+          # would otherwise fail the monitor 3x and get the pod SIGKILLed). The
+          # kill window (periodSeconds*failureThreshold = 150s) is deliberately
+          # wider than the 120s conversionTimeout, so a max-length render is
+          # aborted (freeing its thread) before the pod could ever be killed.
           livenessProbe:
             httpGet:
               path: "/service/monitor/server?adminKey={{ .Values.configmap.data.PDFREACTOR_ADMINKEY }}"
               port: http
-#          readinessProbe:
-#            httpGet:
-#              path: /
-#              port: http
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 10
+          # No readiness probe: the license permits only one replica, so pulling
+          # the sole pod from the Service on saturation would be a 100% outage
+          # rather than shedding load. The relaxed liveness window above is the
+          # backstop instead.
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

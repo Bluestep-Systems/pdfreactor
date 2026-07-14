@@ -2,6 +2,8 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+# Single replica: the PDFReactor license only permits one running instance, so
+# we can't scale out. Note this means readiness has no sibling to shed to.
 replicaCount: 1
 image:
   repository: ghcr.io/bluestep-systems/pdfreactor
@@ -77,5 +79,9 @@ ingress:
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 configmap:
   data:
-    JAVA_OPTIONS: "-XX:ActiveProcessorCount=4 -XX:InitialRAMPercentage=45 -XX:MaxRAMPercentage=45"
+    # conversionTimeout (seconds) aborts any single render that runs longer than
+    # this, so a runaway/pathological document can't pin a worker thread + heap
+    # indefinitely and drag the whole service into GC thrash. 0 (the default) =
+    # no limit. See RealObjects WS manual "Server Parameters".
+    JAVA_OPTIONS: "-XX:ActiveProcessorCount=4 -XX:InitialRAMPercentage=45 -XX:MaxRAMPercentage=45 -Dcom.realobjects.pdfreactor.webservice.conversionTimeout=120"
     PDFREACTOR_ADMINKEY: "always-replace-this-secret"
