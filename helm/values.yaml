@@ -9,7 +9,7 @@ image:
   repository: ghcr.io/bluestep-systems/pdfreactor
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "25.12.16.00"
+  tag: "26.07.14.00"
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
