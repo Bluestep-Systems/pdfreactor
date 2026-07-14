@@ -2,10 +2,9 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-# 2 replicas so readiness can shed load to a sibling during a saturation spike
-# instead of leaving the Service with zero endpoints (a single-replica readiness
-# failure = full outage). Also removes the single point of failure on restart.
-replicaCount: 2
+# Single replica: the PDFReactor license only permits one running instance, so
+# we can't scale out. Note this means readiness has no sibling to shed to.
+replicaCount: 1
 image:
   repository: ghcr.io/bluestep-systems/pdfreactor
   pullPolicy: IfNotPresent
