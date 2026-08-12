@@ -69,10 +69,11 @@ jobs:
           echo "Tag '$GIT_TAG' is a well-formed, non-future release date."
 
       - name: Bump chart versions and set image.tag
+        env:
+          GIT_TAG: ${{ env.TAG }}
         run: |
           CHART_FILE="helm/Chart.yaml"
           VALUES_FILE="helm/values.yaml"
-          GIT_TAG=${{ env.TAG  }}
 
           echo "Using Git tag: $GIT_TAG"
 
