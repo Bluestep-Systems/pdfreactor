@@ -9,6 +9,15 @@ spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
+  # Recreate, not RollingUpdate. The licence permits ONE running instance, and
+  # the default RollingUpdate breaks that on every deploy: with replicas=1,
+  # maxSurge 25% rounds up to 1 and maxUnavailable 25% rounds down to 0, so
+  # Kubernetes must start the replacement before retiring the old pod -- two
+  # licensed instances live at once (observed 2026-08-31 on worker05 +
+  # blade01d). Recreate trades that for a cold-start gap on deploy, which for a
+  # single-replica service with no HA story is the cheaper side. See CU-86bbqrrrt.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "pdfreactor.selectorLabels" . | nindent 6 }}
