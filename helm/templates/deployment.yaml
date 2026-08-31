@@ -64,19 +64,33 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 30
-          # Liveness only fires for a truly dead pod. Timing is explicit so it
-          # doesn't inherit the k8s default timeoutSeconds:1 (a brief GC pause
-          # would otherwise fail the monitor 3x and get the pod SIGKILLed). The
-          # kill window (periodSeconds*failureThreshold = 150s) is deliberately
-          # wider than the 120s conversionTimeout, so a max-length render is
-          # aborted (freeing its thread) before the pod could ever be killed.
+          # Timing is explicit so it doesn't inherit the k8s default
+          # timeoutSeconds:1 (a brief pause would otherwise fail the monitor 3x
+          # and get the pod SIGKILLed).
+          #
+          # failureThreshold was 10 (a 150s kill window), chosen to sit wider
+          # than the 120s conversionTimeout on the theory that a max-length
+          # render could starve the probe. A thread dump from the wedged pod
+          # (CU-86bbqrrrt) disproves that: renders run on PDFReactor's own
+          # "conversion-pool-thread-*" executor, not on the Jetty pool the
+          # monitor endpoint is served from, so a long conversion cannot fail
+          # this probe.
+          #
+          # That window also made the probe blind to the failure it most needs
+          # to catch. Jetty runs one selector per 2 cores, so ActiveProcessorCount=4
+          # gives 2; when one selector thread dies, every connection assigned to
+          # it hangs forever while the other half is served normally. Ten
+          # CONSECUTIVE failures essentially never occur at a ~50% failure rate,
+          # so the pod sat half-dead for 19 days without ever restarting. At 4,
+          # the window is still 60s -- longer than any healthy response -- but a
+          # half-dead pod now self-heals in a couple of minutes.
           livenessProbe:
             exec:
               command:
                 {{- include "pdfreactor.monitorProbe" . | nindent 16 }}
             periodSeconds: 15
             timeoutSeconds: 5
-            failureThreshold: 10
+            failureThreshold: 4
           # No readiness probe: the license permits only one replica, so pulling
           # the sole pod from the Service on saturation would be a 100% outage
           # rather than shedding load. The relaxed liveness window above is the
