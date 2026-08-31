@@ -83,5 +83,11 @@ configmap:
     # this, so a runaway/pathological document can't pin a worker thread + heap
     # indefinitely and drag the whole service into GC thrash. 0 (the default) =
     # no limit. See RealObjects WS manual "Server Parameters".
-    JAVA_OPTIONS: "-XX:ActiveProcessorCount=4 -XX:InitialRAMPercentage=45 -XX:MaxRAMPercentage=45 -Dcom.realobjects.pdfreactor.webservice.conversionTimeout=120"
+    # -Xlog gc+safepoint to stdout so `kubectl logs` shows it without exec'ing in.
+    # The pod intermittently stops answering every HTTP path for >=60s, including
+    # the kubelet's direct-to-pod liveness probe, while sitting at ~7% of its CPU
+    # quota. A stop-the-world pause and CPU starvation look identical from
+    # outside; this is what tells them apart on the next occurrence. Safe to drop
+    # once CU-86bbqrrrt is settled.
+    JAVA_OPTIONS: "-XX:ActiveProcessorCount=4 -XX:InitialRAMPercentage=45 -XX:MaxRAMPercentage=45 -Dcom.realobjects.pdfreactor.webservice.conversionTimeout=120 -Xlog:gc*,safepoint:stdout:time,uptime,level,tags"
     PDFREACTOR_ADMINKEY: "always-replace-this-secret"
