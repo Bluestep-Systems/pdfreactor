@@ -70,8 +70,14 @@ externalSecrets:
   data: []
   # - secretKey: licensekey.txt
   #   remoteKey: PDFREACTOR_LICENSE_KEY
-  # - secretKey: PDFREACTOR_ADMINKEY
-  #   remoteKey: PDFREACTOR_ADMIN_KEY
+  #
+  # NB: secrets.yaml targets "<fullname>-license", which deployment.yaml mounts
+  # as a file at /ro/config. So entries here become FILES in the licence mount,
+  # not environment variables. PDFREACTOR_ADMINKEY was listed here once and
+  # could never have worked: it would have written a file the server never
+  # reads, while the real key kept coming from the ConfigMap. It is supplied as
+  # a Helm value instead -- see the "pdfreactor.adminKey" helper for why the
+  # probes force that.
 ingress:
   enabled: true
   annotations:
@@ -90,4 +96,10 @@ configmap:
     # outside; this is what tells them apart on the next occurrence. Safe to drop
     # once CU-86bbqrrrt is settled.
     JAVA_OPTIONS: "-XX:ActiveProcessorCount=4 -XX:InitialRAMPercentage=45 -XX:MaxRAMPercentage=45 -Dcom.realobjects.pdfreactor.webservice.conversionTimeout=120 -Xlog:gc*,safepoint:stdout:time,uptime,level,tags"
-    PDFREACTOR_ADMINKEY: "always-replace-this-secret"
+    # No default, on purpose: this repo is public, so any placeholder here is a
+    # published credential. The previous default ("always-replace-this-secret")
+    # reached production verbatim and answered the monitor endpoint from the
+    # open internet. Rendering fails unless this is supplied explicitly --
+    # see the "pdfreactor.adminKey" helper. Pass it at upgrade time:
+    #   helm upgrade ... --set configmap.data.PDFREACTOR_ADMINKEY=<key>
+    PDFREACTOR_ADMINKEY: ""

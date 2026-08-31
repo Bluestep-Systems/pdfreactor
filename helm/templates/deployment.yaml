@@ -48,7 +48,7 @@ spec:
           # trip an early liveness kill. Generous: up to 30*10s = 5min to boot.
           startupProbe:
             httpGet:
-              path: "/service/monitor/server?adminKey={{ .Values.configmap.data.PDFREACTOR_ADMINKEY }}"
+              path: "/service/monitor/server?adminKey={{ include "pdfreactor.adminKey" . }}"
               port: http
             periodSeconds: 10
             timeoutSeconds: 5
@@ -61,7 +61,7 @@ spec:
           # aborted (freeing its thread) before the pod could ever be killed.
           livenessProbe:
             httpGet:
-              path: "/service/monitor/server?adminKey={{ .Values.configmap.data.PDFREACTOR_ADMINKEY }}"
+              path: "/service/monitor/server?adminKey={{ include "pdfreactor.adminKey" . }}"
               port: http
             periodSeconds: 15
             timeoutSeconds: 5
