@@ -1,3 +1,4 @@
+{{- include "pdfreactor.validateAdminKeySource" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -35,6 +36,16 @@ spec:
           envFrom:
           - configMapRef:
               name: "{{ include "pdfreactor.fullname" . }}-configmap"
+          # The admin key is a secret and comes from the Secret, never the
+          # ConfigMap. An explicit `env` entry outranks a same-named key arriving
+          # via envFrom, so this stays authoritative even against a stale
+          # ConfigMap that still carries one.
+          env:
+          - name: PDFREACTOR_ADMINKEY
+            valueFrom:
+              secretKeyRef:
+                name: "{{ include "pdfreactor.fullname" . }}-license"
+                key: PDFREACTOR_ADMINKEY
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           volumeMounts:
           - name: licensefile
@@ -47,9 +58,9 @@ spec:
           # are actually up, so a slow cold start (font-cache warm, etc.) can't
           # trip an early liveness kill. Generous: up to 30*10s = 5min to boot.
           startupProbe:
-            httpGet:
-              path: "/service/monitor/server?adminKey={{ include "pdfreactor.adminKey" . }}"
-              port: http
+            exec:
+              command:
+                {{- include "pdfreactor.monitorProbe" . | nindent 16 }}
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 30
@@ -60,9 +71,9 @@ spec:
           # wider than the 120s conversionTimeout, so a max-length render is
           # aborted (freeing its thread) before the pod could ever be killed.
           livenessProbe:
-            httpGet:
-              path: "/service/monitor/server?adminKey={{ include "pdfreactor.adminKey" . }}"
-              port: http
+            exec:
+              command:
+                {{- include "pdfreactor.monitorProbe" . | nindent 16 }}
             periodSeconds: 15
             timeoutSeconds: 5
             failureThreshold: 10
@@ -88,3 +99,10 @@ spec:
       - name: licensefile
         secret:
            secretName: "{{ include "pdfreactor.fullname" . }}-license"
+           # Project only the licence file. The same Secret also carries
+           # PDFREACTOR_ADMINKEY (consumed as env above); without this projection
+           # the key would additionally land as a stray file in the licence
+           # directory that nothing reads.
+           items:
+           - key: licensekey.txt
+             path: licensekey.txt

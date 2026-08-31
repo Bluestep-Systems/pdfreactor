@@ -59,6 +59,13 @@ affinity: {}
 licensekey: "always-replace-this-license-key"
 # The license key is stored in a Kubernetes secret
 
+# The PDFReactor admin key, which gates the /service/monitor admin surface.
+# Only consulted when externalSecrets.enabled=false (local/dev installs that
+# manage the Secret themselves). In the cluster it comes from Bitwarden Secrets
+# Manager -- see externalSecrets.data below. No default on purpose: this repo is
+# public, and a committed placeholder here shipped to production once already.
+adminkey: ""
+
 # ExternalSecrets configuration - pulls secrets from Bitwarden Secrets Manager via ESO
 # Note: Uses ExternalSecret CRD with ClusterSecretStore
 externalSecrets:
@@ -67,17 +74,20 @@ externalSecrets:
   secretStoreRef:
     name: bws-dev-shared
     kind: ClusterSecretStore
-  data: []
-  # - secretKey: licensekey.txt
-  #   remoteKey: PDFREACTOR_LICENSE_KEY
+  # Both entries land in the "<fullname>-license" Secret. They are consumed
+  # differently, and the difference matters:
+  #   licensekey.txt      -> projected as a FILE into the /ro/config mount
+  #   PDFREACTOR_ADMINKEY -> read as an ENV VAR via secretKeyRef
+  # The volume in deployment.yaml projects licensekey.txt only, so the admin key
+  # never appears as a stray file in the licence directory.
   #
-  # NB: secrets.yaml targets "<fullname>-license", which deployment.yaml mounts
-  # as a file at /ro/config. So entries here become FILES in the licence mount,
-  # not environment variables. PDFREACTOR_ADMINKEY was listed here once and
-  # could never have worked: it would have written a file the server never
-  # reads, while the real key kept coming from the ConfigMap. It is supplied as
-  # a Helm value instead -- see the "pdfreactor.adminKey" helper for why the
-  # probes force that.
+  # Rendering fails if this list omits PDFREACTOR_ADMINKEY while ESO is enabled
+  # -- see the "pdfreactor.validateAdminKeySource" helper.
+  data:
+  - secretKey: licensekey.txt
+    remoteKey: PDFREACTOR_LICENSE_KEY
+  - secretKey: PDFREACTOR_ADMINKEY
+    remoteKey: PDFREACTOR_ADMIN_KEY
 ingress:
   enabled: true
   annotations:
@@ -96,10 +106,7 @@ configmap:
     # outside; this is what tells them apart on the next occurrence. Safe to drop
     # once CU-86bbqrrrt is settled.
     JAVA_OPTIONS: "-XX:ActiveProcessorCount=4 -XX:InitialRAMPercentage=45 -XX:MaxRAMPercentage=45 -Dcom.realobjects.pdfreactor.webservice.conversionTimeout=120 -Xlog:gc*,safepoint:stdout:time,uptime,level,tags"
-    # No default, on purpose: this repo is public, so any placeholder here is a
-    # published credential. The previous default ("always-replace-this-secret")
-    # reached production verbatim and answered the monitor endpoint from the
-    # open internet. Rendering fails unless this is supplied explicitly --
-    # see the "pdfreactor.adminKey" helper. Pass it at upgrade time:
-    #   helm upgrade ... --set configmap.data.PDFREACTOR_ADMINKEY=<key>
-    PDFREACTOR_ADMINKEY: ""
+    # PDFREACTOR_ADMINKEY deliberately does NOT live here. It is a credential:
+    # a ConfigMap is world-readable to anything with `get configmap` in the
+    # namespace, and this one shipped "always-replace-this-secret" to production.
+    # It now arrives as an env var from the Secret -- see deployment.yaml.

@@ -5,7 +5,7 @@ LABEL org.opencontainers.image.description="PDF Reactor throttled"
 HEALTHCHECK NONE
 
 USER root
-RUN microdnf install -y util-linux && microdnf clean all
+RUN microdnf install -y util-linux curl && microdnf clean all
 
 USER pdfreactor
 ENV CORES="0-3"
