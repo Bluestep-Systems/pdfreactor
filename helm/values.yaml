@@ -9,7 +9,7 @@ image:
   repository: ghcr.io/bluestep-systems/pdfreactor
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "26.07.14.00"
+  tag: "26.08.31.00"
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
@@ -65,7 +65,6 @@ licensekey: "always-replace-this-license-key"
 # Manager -- see externalSecrets.data below. No default on purpose: this repo is
 # public, and a committed placeholder here shipped to production once already.
 adminkey: ""
-
 # ExternalSecrets configuration - pulls secrets from Bitwarden Secrets Manager via ESO
 # Note: Uses ExternalSecret CRD with ClusterSecretStore
 externalSecrets:
@@ -84,10 +83,10 @@ externalSecrets:
   # Rendering fails if this list omits PDFREACTOR_ADMINKEY while ESO is enabled
   # -- see the "pdfreactor.validateAdminKeySource" helper.
   data:
-  - secretKey: licensekey.txt
-    remoteKey: PDFREACTOR_LICENSE_KEY
-  - secretKey: PDFREACTOR_ADMINKEY
-    remoteKey: PDFREACTOR_ADMIN_KEY
+    - secretKey: licensekey.txt
+      remoteKey: PDFREACTOR_LICENSE_KEY
+    - secretKey: PDFREACTOR_ADMINKEY
+      remoteKey: PDFREACTOR_ADMIN_KEY
 ingress:
   enabled: true
   annotations:
