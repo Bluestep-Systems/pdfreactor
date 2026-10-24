@@ -1,0 +1,15 @@
+{{- if include "pdfreactor.jvmSecurity.enabled" . }}
+{{- $js := .Values.jvmSecurity }}
+# JVM trust settings (CU-86bcqtb6w). Editing this ConfigMap in the cluster
+# rolls the Deployment via Stakater Reloader; see jvmSecurity in values.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pdfreactor.jvmSecurity.configMapName" . }}
+  labels:
+    {{- include "pdfreactor.labels" . | nindent 4 }}
+    # Reloader only watches ConfigMaps carrying this label.
+    bluestep/reload: "true"
+data:
+  {{- dict "blocked.certs.extra" ($js.blockedCerts | default "") "distrusted.anchors" ($js.distrustedAnchors | default "") "java.security" ($js.securityProperties | default "") | toYaml | nindent 2 }}
+{{- end }}
