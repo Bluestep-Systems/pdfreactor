@@ -5,6 +5,13 @@ metadata:
   name: {{ include "pdfreactor.fullname" . }}
   labels:
     {{- include "pdfreactor.labels" . | nindent 4 }}
+  {{- if include "pdfreactor.jvmSecurity.enabled" . }}
+  # Out-of-band edits to the JVM security ConfigMap or its operator overlay
+  # roll the pod. Targeted on purpose: never reloader.stakater.com/auto, which
+  # would also restart on every unrelated ConfigMap/Secret change.
+  annotations:
+    configmap.reloader.stakater.com/reload: {{ printf "%s,%s" (include "pdfreactor.jvmSecurity.configMapName" .) (include "pdfreactor.jvmSecurity.localConfigMapName" .) | quote }}
+  {{- end }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
@@ -23,9 +30,15 @@ spec:
       {{- include "pdfreactor.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
+      {{- if or .Values.podAnnotations (include "pdfreactor.jvmSecurity.enabled" .) }}
       annotations:
+        {{- if include "pdfreactor.jvmSecurity.enabled" . }}
+        # helm upgrades that change the JVM security ConfigMap roll the pod.
+        checksum/jvm-security: {{ include (print $.Template.BasePath "/jvm-security-configmap.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- end }}
       labels:
         {{- include "pdfreactor.selectorLabels" . | nindent 8 }}
@@ -37,6 +50,10 @@ spec:
       serviceAccountName: {{ include "pdfreactor.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if include "pdfreactor.jvmSecurity.enabled" . }}
+      initContainers:
+        {{- include "pdfreactor.jvmSecurity.initContainer" . | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
@@ -55,10 +72,17 @@ spec:
               secretKeyRef:
                 name: "{{ include "pdfreactor.fullname" . }}-license"
                 key: PDFREACTOR_ADMINKEY
+          {{- if include "pdfreactor.jvmSecurity.enabled" . }}
+          - name: JDK_JAVA_OPTIONS
+            value: {{ include "pdfreactor.jvmSecurity.jdkJavaOptions" . | quote }}
+          {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           volumeMounts:
           - name: licensefile
             mountPath: /ro/config
+          {{- if include "pdfreactor.jvmSecurity.enabled" . }}
+          {{- include "pdfreactor.jvmSecurity.volumeMounts" . | nindent 10 }}
+          {{- end }}
           ports:
             - name: http
               containerPort: 9423
@@ -129,3 +153,6 @@ spec:
            items:
            - key: licensekey.txt
              path: licensekey.txt
+      {{- if include "pdfreactor.jvmSecurity.enabled" . }}
+      {{- include "pdfreactor.jvmSecurity.volumes" . | nindent 6 }}
+      {{- end }}

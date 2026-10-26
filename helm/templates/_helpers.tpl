@@ -121,3 +121,121 @@ a hung server fails the probe deterministically rather than racing the kubelet.
 - -c
 - 'curl -sf --max-time 4 -o /dev/null "http://127.0.0.1:9423/service/monitor/server?adminKey=${PDFREACTOR_ADMINKEY}"'
 {{- end }}
+
+{{/*
+JVM trust settings from config (CU-86bcqtb6w) -- see jvmSecurity in values.yaml.
+Every lookup goes through `.Values.jvmSecurity | default dict`, so a release
+upgraded with --reuse-values from a chart without the block renders as disabled.
+
+True (non-empty) when the feature is on.
+*/}}
+{{- define "pdfreactor.jvmSecurity.enabled" -}}
+{{- $js := .Values.jvmSecurity | default dict -}}
+{{- if $js.enabled }}true{{ end -}}
+{{- end }}
+
+{{/*
+Name of the ConfigMap carrying blocked.certs.extra, distrusted.anchors and java.security.
+*/}}
+{{- define "pdfreactor.jvmSecurity.configMapName" -}}
+{{- printf "%s-jvm-security" (include "pdfreactor.jvmSecurity.namePrefix" .) -}}
+{{- end }}
+
+{{/*
+Name of the optional operator overlay ConfigMap. Helm never renders it, so an
+emergency edit there survives deploys; the init container merges it over ours.
+*/}}
+{{- define "pdfreactor.jvmSecurity.localConfigMapName" -}}
+{{- printf "%s-jvm-security-local" (include "pdfreactor.jvmSecurity.namePrefix" .) -}}
+{{- end }}
+
+{{/*
+The fullname, cut short enough that the longer suffix ("-jvm-security-local")
+still fits in 63 characters. Both names use it, so they always share a prefix
+and stay distinct; truncating after appending would let the suffix collapse.
+*/}}
+{{- define "pdfreactor.jvmSecurity.namePrefix" -}}
+{{- include "pdfreactor.fullname" . | trunc (sub 63 (len "-jvm-security-local") | int) | trimSuffix "-" -}}
+{{- end }}
+
+{{/*
+First init container: builds the validated snapshot (cacerts, blocked.certs,
+java.security) in the jvm-security-merged emptyDir from the ConfigMap. The
+script is files/jvm-security-init.sh, kept byte-identical to the campaign's
+reference copy. It deliberately takes no env/envFrom from the app ConfigMap,
+so the app's JVM options don't reach these JVMs.
+*/}}
+{{- define "pdfreactor.jvmSecurity.initContainer" -}}
+{{- $js := .Values.jvmSecurity | default dict -}}
+- name: jvm-security
+  securityContext:
+    {{- toYaml .Values.securityContext | nindent 4 }}
+  image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+  imagePullPolicy: {{ .Values.image.pullPolicy }}
+  env:
+  - name: EXPECTED_JAVA_HOME
+    value: {{ $js.javaHome | quote }}
+  command:
+  - sh
+  - -ec
+  - |
+    {{- .Files.Get "files/jvm-security-init.sh" | nindent 4 }}
+  volumeMounts:
+  - name: jvm-security
+    mountPath: /etc/bluestep/jvm-security-src
+    readOnly: true
+  - name: jvm-security-local
+    mountPath: /etc/bluestep/jvm-security-local
+    readOnly: true
+  - name: jvm-security-merged
+    mountPath: /merged
+  resources:
+    {{- toYaml $js.initResources | nindent 4 }}
+{{- end }}
+
+{{/*
+Mounts for every container that runs a JVM: the validated snapshot only,
+never the ConfigMap itself.
+*/}}
+{{- define "pdfreactor.jvmSecurity.volumeMounts" -}}
+{{- $js := .Values.jvmSecurity | default dict -}}
+{{- $sec := printf "%s/lib/security" (trimSuffix "/" $js.javaHome) -}}
+- name: jvm-security-merged
+  mountPath: /etc/bluestep/jvm-security
+  readOnly: true
+- name: jvm-security-merged
+  mountPath: {{ $sec }}/blocked.certs
+  subPath: blocked.certs
+  readOnly: true
+- name: jvm-security-merged
+  mountPath: {{ $sec }}/cacerts
+  subPath: cacerts
+  readOnly: true
+{{- end }}
+
+{{/*
+Pod volumes backing the init container and the mounts above.
+*/}}
+{{- define "pdfreactor.jvmSecurity.volumes" -}}
+- name: jvm-security
+  configMap:
+    name: {{ include "pdfreactor.jvmSecurity.configMapName" . }}
+- name: jvm-security-local
+  configMap:
+    name: {{ include "pdfreactor.jvmSecurity.localConfigMapName" . }}
+    optional: true
+- name: jvm-security-merged
+  emptyDir:
+    sizeLimit: 2Mi
+{{- end }}
+
+{{/*
+JDK_JAVA_OPTIONS for the app container. start.sh launches the JVM with the
+`java` launcher, which reads it. Single `=` layers the snapshot over the JDK's
+java.security instead of replacing it. Appends to any JDK_JAVA_OPTIONS set
+through configmap.data, which this explicit env entry would otherwise shadow.
+*/}}
+{{- define "pdfreactor.jvmSecurity.jdkJavaOptions" -}}
+{{- $existing := default "" (get .Values.configmap.data "JDK_JAVA_OPTIONS") -}}
+{{- trim (printf "%s -Djava.security.properties=/etc/bluestep/jvm-security/java.security" $existing) -}}
+{{- end }}
